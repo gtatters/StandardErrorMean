@@ -2,7 +2,7 @@
 # A step-by-step interactive demonstration
 # Base R only — no additional libraries required
 
-#shinylive::export(appdir = "../CentralLimitMean/", destdir = "docs")
+#shinylive::export(appdir = "../StandardErrorMean/", destdir = "docs")
 #httpuv::runStaticServer("docs/", port = 8008)
 
 # library(shiny)
