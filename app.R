@@ -613,7 +613,7 @@ server <- function(input, output, session) {
              ann_col   = COL_SUM)
     
     plot_row(mv, COL_MEAN,
-             main_txt  = paste0("Means of ", n, " observations  \u2192  SE = \u03c3/\u221an"),
+             main_txt  = paste0("Means of ", n, " observations  \u2192  SE = \u03c3 \u00f7 \u221an"),
              xlab_txt  = "Sample mean",
              theory_sd = sig / sqrt(n),
              ann_col   = COL_MEAN)
@@ -702,7 +702,7 @@ server <- function(input, output, session) {
          col = "#E07B39", cex = 1.05, adj = 0)
     
     legend("topright",
-           legend = c(paste0("Theory: \u03c3/\u221an"),
+           legend = c(paste0("Theory: \u03c3 \u00f7 \u221an"),
                       "Simulated SE",
                       "Current n"),
            col = c(COL_THEORY, COL_MEAN, "#E07B39"),
