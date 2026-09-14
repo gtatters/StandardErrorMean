@@ -123,14 +123,14 @@ ui <- fluidPage(
           title = "\u2462 Dividing gives the mean",
           br(),
           div(
-            p("To compute a sample mean we divide the sum by n. Dividing a
-               random variable by a constant n shrinks its variance by n\u00b2
-               (not just n), because variance scales with the square of any
-               multiplier. So the variance of the mean is \u03c3\u00b2/n, and the
-               standard deviation of the mean — the standard error — is
-               \u03c3/\u221an. The orange dashed curve is that theoretical prediction;
-               watch how closely it matches the teal histogram of simulated
-               sample means."),
+            p("To compute a sample mean we divide the sum by n. The left
+               panel below is the same sums distribution from the previous
+               tab; the right panel shows what happens once every sum is
+               divided by n. Dividing a random variable by a constant n
+               shrinks its variance by n\u00b2 (not just n), because variance
+               scales with the square of any multiplier — so the spread
+               shrinks by a factor of exactly n. The orange dashed curves
+               are the theoretical predictions for each panel."),
             align = "justify"
           ),
           br(),
@@ -442,61 +442,74 @@ server <- function(input, output, session) {
   # ---------------------------------------------------------------------------
   # STEP 3 PLOT
   #
-  # Single histogram of the k sample means (teal bars).
-  # Two curves are overlaid:
-  #   (1) smoothed kernel density of the simulated means — teal solid line
-  #   (2) theoretical Normal(mean=0, sd=sigma/sqrt(n)) — orange dashed line
+  # Two-panel layout bridging Tab 2 -> Tab 3:
+  #   Left panel  : the SAME sums distribution shown in Tab 2 (purple)
+  #   Right panel : sample means = sums / n (teal), with theoretical overlay
   #
-  # x limits are set to +/-4 SE so both curves are fully visible even when
-  # SE is very small (large n).
-  #
-  # The annotation uses grconvertX/Y so it is pinned to the upper-left corner
-  # of the panel regardless of data scale or resample — it no longer jumps.
+  # Putting sums and means side by side (rather than means alone) makes the
+  # "divide by n" step visible rather than just asserted in text: the purple
+  # distribution on the left is squeezed into the narrow teal distribution
+  # on the right by a factor of exactly n (since SD(sum)/SD(mean) = n).
+  # Each panel keeps its own x-scale — they differ by a factor of n, so a
+  # shared axis would flatten the means panel to an unreadable spike.
   # ---------------------------------------------------------------------------
   output$plot_step3 <- renderPlot({
     
     d   <- simdata()
     sig <- input$sigma
     n   <- input$n
+    sv  <- d$sums
     mv  <- d$means
     
-    se_theory <- sig / sqrt(n)
-    sd_obs    <- round(sd(mv), 3)
+    sum_theory  <- sig * sqrt(n)
+    se_theory   <- sig / sqrt(n)
+    sd_sum_obs  <- round(sd(sv), 2)
+    sd_mean_obs <- round(sd(mv), 3)
     
-    dens  <- density(mv)
-    xr    <- c(-4 * se_theory, 4 * se_theory)
-    x_seq <- seq(xr[1], xr[2], length.out = 300)
+    op <- par(mfrow = c(1, 2), mar = c(4, 4, 3, 1), oma = c(0, 0, 2.5, 0))
+    on.exit(par(op))
+    
+    # --- Left: sums (identical distribution to Tab 2's right panel) ---
+    xr_sum  <- c(-1, 1) * max(abs(sv)) * 1.15
+    x_seq_s <- seq(xr_sum[1], xr_sum[2], length.out = 300)
+    
+    hist(sv,
+         breaks = 40, freq = FALSE,
+         col    = adjustcolor(COL_SUM, 0.6), border = "white",
+         main   = paste0("Sums of ", n, " observations"),
+         xlab   = paste0("Sum of ", n, " values"), ylab = "Density",
+         xlim   = xr_sum,
+         cex.main = 1.3, cex.axis = 1.1, cex.lab = 1.1)
+    lines(x_seq_s, dnorm(x_seq_s, mean = 0, sd = sum_theory),
+          col = COL_THEORY, lwd = 2, lty = 2)
+    abline(v = 0, lty = 2, col = "grey50")
+    text(grconvertX(0.05, "npc"), grconvertY(0.90, "npc"),
+         labels = paste0("SD = ", sd_sum_obs,
+                         "\nTheory: \u03c3\u221an = ", round(sum_theory, 2)),
+         col = COL_SUM, cex = 1.05, adj = 0)
+    
+    # --- Right: means = sums / n ---
+    xr_mean <- c(-4 * se_theory, 4 * se_theory)
+    x_seq_m <- seq(xr_mean[1], xr_mean[2], length.out = 300)
     
     hist(mv,
          breaks = 40, freq = FALSE,
          col    = adjustcolor(COL_MEAN, 0.6), border = "white",
-         main   = paste0("Sample means  (n = ", n, ")"),
+         main   = paste0("Sample means  (\u00f7 ", n, ")"),
          xlab   = "Sample mean", ylab = "Density",
-         xlim   = xr,
+         xlim   = xr_mean,
          cex.main = 1.3, cex.axis = 1.1, cex.lab = 1.1)
-    
-    lines(dens, col = COL_MEAN, lwd = 2)   # smoothed observed density
-    
-    # Theoretical Normal curve: mean=0 (population mean), sd=sigma/sqrt(n)
-    lines(x_seq,
-          dnorm(x_seq, mean = 0, sd = se_theory),
+    lines(x_seq_m, dnorm(x_seq_m, mean = 0, sd = se_theory),
           col = COL_THEORY, lwd = 2.5, lty = 2)
-    
-    abline(v = 0, lty = 2, col = "grey50")   # true population mean
-    
-    legend("topright",
-           legend = c("Observed density",
-                      paste0("Theory: Normal(0, \u03c3/\u221an = ",
-                             round(se_theory, 2), ")")),
-           col = c(COL_MEAN, COL_THEORY),
-           lwd = c(2, 2.5), lty = c(1, 2),
-           bty = "n", cex = 1.0)
-    
-    # Upper-left annotation pinned by grconvertX/Y — stays fixed on resample
+    abline(v = 0, lty = 2, col = "grey50")
     text(grconvertX(0.05, "npc"), grconvertY(0.90, "npc"),
-         labels = paste0("Observed SE = ", sd_obs,
-                         "\nTheory: \u03c3/\u221an = ", round(se_theory, 3)),
-         col = "black", cex = 1.05, adj = 0)
+         labels = paste0("SD = ", sd_mean_obs,
+                         "\nTheory: \u03c3 \u00f7 \u221an = ", round(se_theory, 3)),
+         col = COL_MEAN, cex = 1.05, adj = 0)
+    
+    mtext(paste0("Dividing each sum by n = ", n,
+                 " squeezes the SD by exactly a factor of n"),
+          outer = TRUE, cex = 1.1, font = 2, line = 1)
   })
   
   # Explanatory text rendered below the Step 3 plot
@@ -504,14 +517,16 @@ server <- function(input, output, session) {
     sig <- input$sigma
     n   <- input$n
     paste0(
-      "Dividing the sum by n to get the mean shrinks variance by n\u00b2 ",
-      "(because variance scales with the square of any constant multiplier). ",
-      "So: Var(mean) = n\u03c3\u00b2 / n\u00b2 = \u03c3\u00b2/n = ",
-      sig^2, "/", n, " = ", round(sig^2 / n, 3), ". ",
-      "Taking the square root gives SE = \u03c3/\u221an = ",
-      sig, "/\u221a", n, " = ", round(sig / sqrt(n), 3), ". ",
-      "The orange dashed curve is that theoretical prediction — check how closely ",
-      "it tracks the teal histogram."
+      "The left panel is the same sum distribution from the previous tab, ",
+      "with SD(sum) = \u03c3\u221an = ", round(sig * sqrt(n), 2), ". ",
+      "To get a sample mean, we divide that sum by n. Dividing a random ",
+      "variable by a constant shrinks its variance by the square of that ",
+      "constant: Var(mean) = Var(sum)/n\u00b2 = (n\u03c3\u00b2)/n\u00b2 = \u03c3\u00b2/n = ",
+      round(sig^2 / n, 3), ". Taking the square root gives ",
+      "SE = \u03c3/\u221an = ", round(sig / sqrt(n), 3), " \u2014 the right panel. ",
+      "Notice the standard deviation itself has shrunk by exactly a factor ",
+      "of n (variance, by contrast, shrinks by n\u00b2): ",
+      "SD(sum)/SE = ", round((sig * sqrt(n)) / (sig / sqrt(n)), 1), " = n = ", n, "."
     )
   })
   
